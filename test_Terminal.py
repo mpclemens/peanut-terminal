@@ -119,6 +119,151 @@ class test_Terminal(unittest.TestCase):
         t.store("XYZ")
         self.assertEqual(t.str(),"12XYZabc67","String should have overwrite near the start: " + t.str())
 
+    def test_interpret_relative_moves(self):
+        # Up, Down, Right, and Left, leaving a character behind after the moves
+        #
+        # Note that the cursor moves to the right after each character, so the
+        # additional ^l sequences back it up into the expected position for
+        # the next write
+        #
+        t = Terminal()
+
+        t.go_to(4,4)
+        t.interpret("^uU^d^d^lD^l^u^rR^l^l^lL")
+
+        self.assertEqual(t.str(),"""          
+          
+          
+    U     
+   L R    
+    D     
+          
+          
+          
+          ""","Result does not match")
+
+
+    def test_interpret_row_column_moves(self):
+        # Go to X,Y and Home, Beginning of Row, Erase from cursor, and Clear all
+        t = Terminal()
+
+        t.interpret("^i^90abcdefghijkklmnop")
+        self.assertEqual(t.str(),
+                         """          
+          
+          
+          
+          
+          
+          
+          
+          
+abcdefghip""","Result does not match after last-row insert")
+
+
+        t.interpret("^i^00==========")
+        t.interpret("^i^40++++++++++")
+        t.interpret("^i^90^e")
+        t.interpret("^i^30----------")        
+        t.interpret("^i^10^^^^^^^^^^^^^^^^^^^^")
+        t.interpret("^i^20**********")
+
+
+        self.assertEqual(t.str(),
+                         """==========
+^^^^^^^^^^
+**********
+----------
+++++++++++
+          
+          
+          
+          
+          ""","Result does not match after inserts and clearing last row")
+
+        t.interpret("^h^e^11^e^22^e^33^e^44^e")
+
+        self.assertEqual(t.str(),
+                         """          
+^         
+**        
+---       
+++++      
+          
+          
+          
+          
+          ""","Result does not match after making triangle of deletions")
+
+        t.interpret("^b^e")
+
+        self.assertEqual(t.str(),
+                         """          
+^         
+**        
+---       
+          
+          
+          
+          
+          
+          ""","Result does not match after beginning of row/erase sequence")
+
+        r_before = t.row
+        c_before = t.col
+        t.interpret("^c")
+
+        self.assertEqual(t.str(),
+                         """          
+          
+          
+          
+          
+          
+          
+          
+          
+          ""","Result does not match after clear-all")
+
+        self.assertEqual(t.row, r_before)
+        self.assertEqual(t.col, c_before)
+
+
+    def test_challenge_data(self):
+        """Run the command sequence presented in the challenge"""
+
+        # Note: the trailing backslashes in the sample data caused Python to ignore them:
+        # appending a space after the \ tells Python's """ intepreter to leave the \ alone
+        
+        data = """^h^c
+^04^^
+^13/ \^d^b  /   \ 
+^u^d^d^l^l^l^l^l^l^l^l^l
+^r^r^l^l^d<CodeEval >^l^l^d/^b \ 
+^d^r^r^66/^b  \ 
+^b^d   \ /
+^d^l^lv^d^b===========^i^94O123456
+789^94A=======^u^u^u^u^u^u^l^l\^o^b^r/
+"""
+
+        t = Terminal()
+
+        for s in data.splitlines():
+            t.interpret(s)        
+
+        self.assertEqual(t.str(),
+"""    ^     
+   / \    
+  /   \   
+ /     \  
+<CodeEval>
+ \     /  
+  \   /   
+   \ /    
+    v     
+====A=====""","Result does not match sample output")
+        
+        
 #
 
 if __name__ == '__main__':
